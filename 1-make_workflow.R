@@ -1,3 +1,4 @@
+# remotes::install_github("EpiModel/slurmworkflow")
 library(slurmworkflow)
 source("0-settings.R")
 
@@ -12,8 +13,9 @@ wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_bash_lines(
     bash_lines = c(
+      "git pull",
       load_r_sh,
-      "Rscript -e \"renv::init(bare = TRUE)\"",
+      "Rscript -e \"renv::init(bare = TRUE, force = TRUE)\"",
       "Rscript -e \"renv::install(c('future.apply','EpiModel/slurmworkflow'))\""
     )
   ),
@@ -28,13 +30,13 @@ wf <- add_workflow_step(
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_rscript(
-    r_script = "2-test_rscript",
+    r_script = "2-test_rscript.R",
     setup_lines = load_r_sh
   ),
   sbatch_opts = list(
     "mem" = "4G",
     "cpus-per-task" = 1,
-    "time" = 10
+    "time" = "00:10:00"
   )
 )
 
@@ -76,7 +78,23 @@ wf <- add_workflow_step(
   sbatch_opts = list(
     "cpus-per-task" = cores_to_use,
     "time" = "00:10:00",
-    "mem-per-cpu" = "4G",
+    "mem-per-cpu" = "4G"
+  )
+)
+
+# step5 - Simple do_call
+#   mostly to get an finishing e-mail
+wf <- add_workflow_step(
+  wf_summary = wf,
+  step_tmpl = step_tmpl_do_call(
+    what = function(v1, v2) cat(paste0("var1 = ", v1, ", var2 = ", v2)),
+    args = list(v1 = "XYZ", v2 = "UVW"),
+    setup_lines = load_r_sh
+  ),
+  sbatch_opts = list(
+    "cpus-per-task" = 1,
+    "time" = "00:10:00",
+    "mem" = "4G",
     "mail-type" = "END"
   )
 )

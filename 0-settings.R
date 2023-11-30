@@ -9,7 +9,7 @@ load_r_sh <- c(
 #   your mail address to receive end of jobs notifications
 #   the partition you use
 #   the account to use (not on all system)
-hpc_config = list(
+hpc_config <- list(
   "mail-user" = "<user>@<provider>",
   "partition" = "epimodel",
   # "account"   = "csde"
