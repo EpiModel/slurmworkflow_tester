@@ -1,20 +1,21 @@
 library(slurmworkflow)
+source("0-settings.R")
 
 # Workflow creation ------------------------------------------------------------
 wf <- create_workflow(
   wf_name = "test_slurmworkflow",
-  default_sbatch_opts = list(
-    "partition" = "epimodel",
-    "mail-type" = "FAIL",
-    "mail-user" = "<user>@emory.edu"
-  )
+  default_sbatch_opts = hpc_config
 )
 
-# step1
+# step1 - setup renv and slurmworkflow on the HPC
 wf <- add_workflow_step(
   wf_summary = wf,
-  step_tmpl = step_tmpl_bash_script(
-    bash_script = "manual_renv.sh"
+  step_tmpl = step_tmpl_bash_lines(
+    bash_lines = c(
+      load_r_sh,
+      "Rscript -e \"renv::init(bare = TRUE)\"",
+      "Rscript -e \"renv::install(c('future.apply','EpiModel/slurmworkflow'))\""
+    )
   ),
   sbatch_opts = list(
     "mem" = "4G",
@@ -23,17 +24,12 @@ wf <- add_workflow_step(
   )
 )
 
-setup_lines <- c(
-  ". /projects/epimodel/spack/share/spack/setup-env.sh",
-  "spack load r@4.2.1"
-)
-
-# step2
+# step2 - copy the script in the Workflow and run it on the HPC
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_rscript(
-    r_script = "dummy.R",
-    setup_lines = setup_lines
+    r_script = "2-test_rscript",
+    setup_lines = load_r_sh
   ),
   sbatch_opts = list(
     "mem" = "4G",
@@ -42,13 +38,14 @@ wf <- add_workflow_step(
   )
 )
 
-# step3
+# step3 - source a script that's on the HPC
+#   Wrapper around `step_tmpl_do_call`. No need to test it as well
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_do_call_script(
-    r_script = "R/01-test_do_call.R",
+    r_script = "3-test_do_call.R",
     args = list(var1 = "ABC", var2 = "DEF"),
-    setup_lines = setup_lines
+    setup_lines = load_r_sh
   ),
   sbatch_opts = list(
     "cpus-per-task" = 1,
@@ -57,13 +54,14 @@ wf <- add_workflow_step(
   )
 )
 
-# step4
-# test map with chuncks (max_array_size < length(iterator))
+# step4 - source a script
+#   test map with chuncks (max_array_size < length(iterator))
+#   Wrapper around `step_tmpl_map`. No need to test it as well
 cores_to_use <- 2
 wf <- add_workflow_step(
   wf_summary = wf,
   step_tmpl = step_tmpl_map_script(
-    r_script = "R/02-test_map.R",
+    r_script = "4-test_map.R",
     # arguments passed to the script
     iterator1 = 1:5,
     iterator2 = 6:10,
@@ -72,30 +70,13 @@ wf <- add_workflow_step(
       var1 = "IJK",
       var2 = "LMN"
     ),
-    setup_lines = setup_lines,
+    setup_lines = load_r_sh,
     max_array_size = 2
   ),
   sbatch_opts = list(
     "cpus-per-task" = cores_to_use,
     "time" = "00:10:00",
-    "mem-per-cpu" = "4G"
-  )
-)
-
-# step5
-wf <- add_workflow_step(
-  wf_summary = wf,
-  step_tmpl = step_tmpl_do_call(
-    what = function(var1, var2) {
-      cat(paste0("var1 = ", var1, ", var2 = ", var2))
-    },
-    args = list(var1 = "XYZ", var2 = "UVW"),
-    setup_lines = setup_lines
-  ),
-  sbatch_opts = list(
-    "cpus-per-task" = 1,
-    "time" = "00:10:00",
-    "mem" = "4G",
+    "mem-per-cpu" = "4G",
     "mail-type" = "END"
   )
 )
