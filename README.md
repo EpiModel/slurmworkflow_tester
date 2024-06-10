@@ -7,7 +7,7 @@ an HPC.
 ## How To Use
 
 - Create a new GitHub repository by clicking the green `Use this template` button above.
-- Clone this new repo on your computer AND on the HPC
+- Clone this new repo on your computer AND on the HPC (`git` is required on the HPC)
 - On your local computer:
   - Setup [`renv`](https://rstudio.github.io/renv/index.html)
     - `renv::init(bare = TRUE)` - then restart R
