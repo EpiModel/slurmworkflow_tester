@@ -9,8 +9,12 @@ an HPC.
 - Create a new GitHub repository by clicking the green `Use this template` button above.
 - Clone this new repo on your computer AND on the HPC
 - On your local computer:
+  - Setup [`renv`](https://rstudio.github.io/renv/index.html)
+    - `renv::init(bare = TRUE)` - then restart R
+    - Install packages: `renv::install(c("future.apply", "EpiModel/slurmworkflow"))`
+    - `renv::snapshot()`
   - Edit the "0-settings.R" script according to your setup
-  - Commit your changes and push to GitHub
+  - Commit your changes and push to GitHub (including the renv.lock file)
   - Run the script "1-make_workflow.R"
 
 Send the generated workflow directory "workflows/test_slurmworkflow" to the HPC with:
