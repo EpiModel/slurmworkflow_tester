@@ -19,7 +19,7 @@ an HPC.
 
 Send the generated workflow directory "workflows/test_slurmworkflow" to the HPC with:
 
-*for Windows users: *
+*for Windows users:*
 
 ```sh
 # bash - local (for WINDOWS users)
@@ -27,7 +27,7 @@ set DISPLAY=
 scp -r workflows\test_slurmworkflow <user>@<hpc address>:<path_to_project_on_HPC>/workflows/
 ```
 
-*for Linux / MacOS users *
+*for Linux / MacOS users*
 
 ```sh
 # bash - local (for Linux / MacOS users)
@@ -43,15 +43,25 @@ scp -r workflows/test_slurmworkflow <user>@<hpc address>:<path_to_project_on_HPC
 ./workflows/test_slurmworkflow/start_workflow.sh
 ```
 
-*Note:
-If you are a Windows user, the script may not be executable. You can solve it with the following command:*
+*The workflow will not work if you source the file (with `source <script>` or `. <script>`).*
+
+
+**Note:**
+
+If you are a Windows user, the script may not be executable. You can solve it with the following command:
 
 ```sh
 # bash - hpc
 chmod +x workflows/test_slurmworkflow/start_workflow.sh
 ```
 
-*The workflow will not work if you source the file (with `source <script>` or `. <script>`).*
+Then run:
+
+```sh
+# bash - HPC
+./workflows/test_slurmworkflow/start_workflow.sh
+```
+
 
 ## Expected results
 
