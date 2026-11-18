@@ -1,22 +1,27 @@
-# remotes::install_github("EpiModel/slurmworkflow")
 library(slurmworkflow)
 source("0-settings.R")
 
 # Workflow creation ------------------------------------------------------------
+if (local_run) unlink(file.path("workflows", wf_name), recursive = TRUE)
+
 wf <- create_workflow(
-  wf_name = "test_slurmworkflow",
+  wf_name = wf_name,
   default_sbatch_opts = hpc_config
 )
 
-# step1 - setup renv and slurmworkflow on the HPC
+# setup - install renv and slurmworkflow on the HPC (skipped locally)
 wf <- add_workflow_step(
   wf_summary = wf,
+  step_name = "setup",
   step_tmpl = step_tmpl_bash_lines(
     bash_lines = c(
       "git pull",
       load_r_sh,
       "Rscript -e \"renv::init(bare = TRUE, force = TRUE)\"",
-      "Rscript -e \"renv::install(c('future.apply','EpiModel/slurmworkflow'))\""
+      paste0(
+        "Rscript -e \"renv::install(c('future.apply', '",
+        slurmworkflow_ref, "'), prompt = FALSE)\""
+      )
     )
   ),
   sbatch_opts = list(
@@ -26,9 +31,10 @@ wf <- add_workflow_step(
   )
 )
 
-# step2 - copy the script in the Workflow and run it on the HPC
+# rscript - copy the script in the workflow and run it on the HPC
 wf <- add_workflow_step(
   wf_summary = wf,
+  step_name = "rscript",
   step_tmpl = step_tmpl_rscript(
     r_script = "2-test_rscript.R",
     setup_lines = load_r_sh
@@ -40,10 +46,11 @@ wf <- add_workflow_step(
   )
 )
 
-# step3 - source a script that's on the HPC
-#   Wrapper around `step_tmpl_do_call`. No need to test it as well
+# do_call_twice - source a script that is on the HPC. The script runs its own
+#   step a second time with `change_next_workflow_step()`.
 wf <- add_workflow_step(
   wf_summary = wf,
+  step_name = "do_call_twice",
   step_tmpl = step_tmpl_do_call_script(
     r_script = "3-test_do_call.R",
     args = list(var1 = "ABC", var2 = "DEF"),
@@ -56,15 +63,14 @@ wf <- add_workflow_step(
   )
 )
 
-# step4 - source a script
-#   test map with chuncks (max_array_size < length(iterator))
-#   Wrapper around `step_tmpl_map`. No need to test it as well
+# map_slices - map with chunks (max_array_size < length(iterator)): 5 items
+#   are submitted as 3 arrays of 2, 2 and 1 tasks.
 cores_to_use <- 2
 wf <- add_workflow_step(
   wf_summary = wf,
+  step_name = "map_slices",
   step_tmpl = step_tmpl_map_script(
     r_script = "4-test_map.R",
-    # arguments passed to the script
     iterator1 = 1:5,
     iterator2 = 6:10,
     MoreArgs = list(
@@ -82,19 +88,77 @@ wf <- add_workflow_step(
   )
 )
 
-# step5 - Simple do_call
-#   mostly to get an finishing e-mail
+# bash_steer - a pure bash step (no R) using the `swf` command: it lists the
+#   steps and sets a one-shot option on the next submission of `calib_work`.
+#   `calib_plan` adds the array size on top of it (overrides aggregate).
 wf <- add_workflow_step(
   wf_summary = wf,
-  step_tmpl = step_tmpl_do_call(
-    what = function(v1, v2) cat(paste0("var1 = ", v1, ", var2 = ", v2)),
-    args = list(v1 = "XYZ", v2 = "UVW"),
+  step_name = "bash_steer",
+  step_tmpl = step_tmpl_bash_lines(c(
+    "echo \"Pure bash step $SWF_CUR ($SWF_CUR_NAME) of run $SWF_RUN_ID\"",
+    "\"$SWF_CMD\" steps",
+    "\"$SWF_CMD\" override calib_work --opt \"comment=set by bash_steer: a b * \\$HOME\""
+  )),
+  sbatch_opts = list(
+    "cpus-per-task" = 1,
+    "time" = "00:05:00",
+    "mem" = "1G"
+  )
+)
+
+# calibration-like loop ---------------------------------------------------------
+#   calib_plan -> calib_work -> calib_plan -> ... -> wrap_up
+#   Each iteration of `calib_plan` sets the size of the next `calib_work` map:
+#   4, 7, 0 (skipped) then 3 items. `calib_work` holds at most 8 items and
+#   runs them by slices of 3 tasks. Its static `next_step` goes back to
+#   `calib_plan`, which ends the loop with `change_next_workflow_step()`.
+calib_sizes <- c(4, 7, 0, 3)
+
+wf <- add_workflow_step(
+  wf_summary = wf,
+  step_name = "calib_plan",
+  step_tmpl = step_tmpl_do_call_script(
+    r_script = "5-calib_plan.R",
+    args = list(sizes = calib_sizes),
     setup_lines = load_r_sh
   ),
   sbatch_opts = list(
     "cpus-per-task" = 1,
     "time" = "00:10:00",
-    "mem" = "4G",
+    "mem" = "2G"
+  )
+)
+
+wf <- add_workflow_step(
+  wf_summary = wf,
+  step_name = "calib_work",
+  next_step = "calib_plan",
+  step_tmpl = step_tmpl_map_script(
+    r_script = "6-calib_work.R",
+    item = 1:8,
+    setup_lines = load_r_sh,
+    max_array_size = 3
+  ),
+  sbatch_opts = list(
+    "cpus-per-task" = 1,
+    "time" = "00:10:00",
+    "mem" = "2G"
+  )
+)
+
+# wrap_up - check that every planned item ran exactly once, mail at the end
+wf <- add_workflow_step(
+  wf_summary = wf,
+  step_name = "wrap_up",
+  step_tmpl = step_tmpl_do_call_script(
+    r_script = "7-wrap_up.R",
+    args = list(sizes = calib_sizes),
+    setup_lines = load_r_sh
+  ),
+  sbatch_opts = list(
+    "cpus-per-task" = 1,
+    "time" = "00:10:00",
+    "mem" = "2G",
     "mail-type" = "END"
   )
 )
