@@ -15,7 +15,7 @@ wf <- add_workflow_step(
   step_name = "setup",
   step_tmpl = step_tmpl_bash_lines(
     bash_lines = c(
-      "git pull",
+      if (git_pull) "git pull",
       load_r_sh,
       "Rscript -e \"renv::init(bare = TRUE, force = TRUE)\"",
       paste0(

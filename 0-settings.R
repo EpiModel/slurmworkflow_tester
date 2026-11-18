@@ -10,7 +10,7 @@ load_r_sh <- c(
 #   the partition you use
 #   the account to use (not on all system)
 hpc_config <- list(
-  "mail-user" = "<user>@<provider>",
+  "mail-user" = Sys.getenv("HPC_MAIL_USER", "<user>@<provider>"),
   "partition" = "epimodel",
   # "account"   = "csde"
   "mail-type" = "FAIL"
@@ -18,8 +18,16 @@ hpc_config <- list(
 
 # EDIT:
 #   the version of slurmworkflow installed on the HPC by the `setup` step
-#   (any `remotes`-style reference understood by `renv::install()`).
-slurmworkflow_ref <- "EpiModel/slurmworkflow@feature/dynamic-steps"
+#   (any `remotes`-style reference understood by `renv::install()`, or the
+#   absolute path of a slurmworkflow checkout on the HPC).
+slurmworkflow_ref <- Sys.getenv(
+  "SWF_TESTER_SWF_REF", "EpiModel/slurmworkflow@feature/dynamic-steps"
+)
+
+# EDIT:
+#   whether the `setup` step runs `git pull` (FALSE when the project was
+#   copied to the HPC without a remote to pull from).
+git_pull <- !identical(Sys.getenv("SWF_TESTER_GIT_PULL"), "false")
 
 # Local dry run with the fake Slurm of slurmworkflow (see `local/README.md`):
 # `SWF_TESTER_LOCAL=true Rscript 1-make_workflow.R` builds
