@@ -9,7 +9,7 @@ writeLines(as.character(iter), iter_file)
 
 if (iter > length(sizes)) {
   cat("Loop done after", iter - 1, "iterations\n")
-  slurmworkflow::change_next_workflow_step("wrap_up")
+  slurmworkflow::change_next_workflow_step("fail_continue")
 } else {
   cat("Iteration", iter, ": the next `calib_work` runs", sizes[iter], "items\n")
   # 0 items skips `calib_work` and comes straight back here

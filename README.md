@@ -14,9 +14,15 @@ steps, the `swf` command, one-shot overrides and dynamically sized maps.
 | 3 | `do_call_twice` | `step_tmpl_do_call_script`; runs itself a second time with `change_next_workflow_step()` |
 | 4 | `map_slices` | `step_tmpl_map_script` with 5 items and `max_array_size = 2` (arrays of 2, 2, 1) |
 | 5 | `bash_steer` | pure bash step (no R): `swf steps` and a one-shot `swf override` of `calib_work` |
-| 6 | `calib_plan` | swfcalib-like planner: sets the size of the next `calib_work` with `set_map_size()` (4, 7, 0, 3 items), then ends the loop with `change_next_workflow_step("wrap_up")` |
+| 6 | `calib_plan` | swfcalib-like planner: sets the size of the next `calib_work` with `set_map_size()` (4, 7, 0, 3 items), then ends the loop with `change_next_workflow_step("fail_continue")` |
 | 7 | `calib_work` | map of up to 8 items, slices of 3 tasks, static `next_step = "calib_plan"` |
-| 8 | `wrap_up` | checks every planned item ran exactly once; mails at the end |
+| 8 | `fail_continue` | map of 3 items whose item 2 fails on purpose; `on_failure = "continue"` |
+| 9 | `timeout_kill` | killed by Slurm at its 1 minute time limit; `on_failure = "continue"` |
+| 10 | `wrap_up` | checks every planned item ran exactly once and the 2 failure markers (codes 1 and 143); mails at the end |
+
+`8-make_failstop_workflow.R` builds a second workflow, `test_slurmworkflow_failstop`:
+`boom` exits with 3, and the default `on_failure = "stop"` must stop the
+workflow before `never`.
 
 ## How To Use
 
@@ -68,13 +74,14 @@ Follow and control the run with:
 ## Expected results
 
 You should receive an e-mail a few minutes later for the end of `wrap_up`
-(`Name=test_slurmworkflow_8_wrap_up ... COMPLETED, ExitCode 0`). Any other
+(`Name=test_slurmworkflow_10_wrap_up ... COMPLETED, ExitCode 0`). Any other
 `ExitCode`, or a FAIL mail, means something failed.
 
 `./workflows/test_slurmworkflow/swf status` should then show the last
-submission `step=8_wrap_up`, `Failed jobs (0)`, and the history should end
+submission `step=10_wrap_up`, `Failed jobs (2)` (the planned ones), and the history should end
 with `event=end`. `swf log -s wrap_up` should end with
-`Loop check OK: 14 items over 4 iterations`.
+`Loop check OK: 14 items over 4 iterations` and
+`Failure check OK: 2 markers (codes 1 and 143)`.
 
 `workflows/test_slurmworkflow/log/<run id>/` should contain:
 
@@ -84,7 +91,8 @@ with `event=end`. `swf log -s wrap_up` should end with
 - 1 `5_bash_steer_*` file
 - 5 `6_calib_plan_*` files (iteration 3 has no `calib_work`: it is skipped)
 - 14 `7_calib_work_*` files (6 jobs: 3+1, 3+3+1, 3)
-- 1 `8_wrap_up_*` file
+- 3 `8_fail_continue_*` files, 1 `9_timeout_kill_*` file
+- 1 `10_wrap_up_*` file
 
 The first `calib_work` job carries the option set by the bash step
 (`--comment=set by bash_steer: a b * $HOME`, one argument) and the later ones
@@ -92,6 +100,18 @@ do not: overrides are one-shot. `swf log -s calib_work` only shows the last
 job; the controller log prints every `sbatch` command.
 
 If so: SUCCESS! `slurmworkflow` is working correctly.
+
+Then the failure workflow (built by `8-make_failstop_workflow.R`, copied like
+the first one):
+
+```sh
+./workflows/test_slurmworkflow_failstop/swf start
+./workflows/test_slurmworkflow_failstop/swf status
+```
+
+Expected: a FAIL mail from the controller, `swf status` reports
+`Workflow stopped on error: step_failed:1_boom`, and `never` never ran (no
+`never_ran` file in the run directory, no `2_never_*` log).
 
 ## Local dry run (no HPC)
 

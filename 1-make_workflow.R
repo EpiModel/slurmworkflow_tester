@@ -146,6 +146,50 @@ wf <- add_workflow_step(
   )
 )
 
+# failure handling ---------------------------------------------------------------
+#   By default a failed step stops the workflow. These two steps fail on
+#   purpose with `on_failure = "continue"`, so the run goes on and `wrap_up`
+#   checks the failure markers they left.
+
+# fail_continue - a map whose item 2 fails: marker `<array job>_1`, code 1
+wf <- add_workflow_step(
+  wf_summary = wf,
+  step_name = "fail_continue",
+  on_failure = "continue",
+  step_tmpl = step_tmpl_map(
+    FUN = function(i) {
+      if (i == 2) stop("planned failure of item 2")
+      cat("item", i, "ok\n")
+    },
+    i = 1:3,
+    setup_lines = load_r_sh
+  ),
+  sbatch_opts = list(
+    "cpus-per-task" = 1,
+    "time" = "00:05:00",
+    "mem" = "1G"
+  )
+)
+
+# timeout_kill - killed by Slurm at its 1 minute time limit (SIGTERM):
+#   marker with code 143. Locally (fake Slurm, no time limit) the payload
+#   sends itself SIGTERM instead.
+wf <- add_workflow_step(
+  wf_summary = wf,
+  step_name = "timeout_kill",
+  on_failure = "continue",
+  step_tmpl = step_tmpl_bash_lines(c(
+    "echo \"start: $(date)\"",
+    if (local_run) "kill -TERM $$" else "sleep 300",
+    "echo 'this line must never be printed'"
+  )),
+  sbatch_opts = list(
+    "cpus-per-task" = 1,
+    "time" = 1,
+    "mem" = "1G"
+  )
+)
+
 # wrap_up - check that every planned item ran exactly once, mail at the end
 wf <- add_workflow_step(
   wf_summary = wf,
