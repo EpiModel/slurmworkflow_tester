@@ -11,7 +11,7 @@ load_r_sh <- c(
 #   the account to use (not on all system)
 hpc_config <- list(
   "mail-user" = Sys.getenv("HPC_MAIL_USER", "<user>@<provider>"),
-  "partition" = "epimodel",
+  "partition" = Sys.getenv("SWF_TESTER_PARTITION", "epimodel"),
   # "account"   = "csde"
   "mail-type" = "FAIL"
 )
