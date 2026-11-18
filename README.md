@@ -17,7 +17,7 @@ steps, the `swf` command, one-shot overrides and dynamically sized maps.
 | 6 | `calib_plan` | swfcalib-like planner: sets the size of the next `calib_work` with `set_map_size()` (4, 7, 0, 3 items), then ends the loop with `change_next_workflow_step("fail_continue")` |
 | 7 | `calib_work` | map of up to 8 items, slices of 3 tasks, static `next_step = "calib_plan"` |
 | 8 | `fail_continue` | map of 3 items whose item 2 fails on purpose; `on_failure = "continue"` |
-| 9 | `timeout_kill` | killed by Slurm at its 1 minute time limit; `on_failure = "continue"` |
+| 9 | `timeout_kill` | killed by Slurm at its 1 minute time limit (plus the cluster's `OverTimeLimit`: ~11 min on RSPH); `on_failure = "continue"` |
 | 10 | `wrap_up` | checks every planned item ran exactly once and the 2 failure markers (codes 1 and 143); mails at the end |
 
 `8-make_failstop_workflow.R` builds a second workflow, `test_slurmworkflow_failstop`:

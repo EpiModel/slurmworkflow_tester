@@ -172,7 +172,9 @@ wf <- add_workflow_step(
 )
 
 # timeout_kill - killed by Slurm at its 1 minute time limit (SIGTERM):
-#   marker with code 143. Locally (fake Slurm, no time limit) the payload
+#   marker with code 143. The sleep must outlast the limit plus the cluster's
+#   OverTimeLimit (10 min on RSPH) and KillWait. Locally (fake Slurm, no time
+#   limit) the payload
 #   sends itself SIGTERM instead.
 wf <- add_workflow_step(
   wf_summary = wf,
@@ -180,7 +182,7 @@ wf <- add_workflow_step(
   on_failure = "continue",
   step_tmpl = step_tmpl_bash_lines(c(
     "echo \"start: $(date)\"",
-    if (local_run) "kill -TERM $$" else "sleep 300",
+    if (local_run) "kill -TERM $$" else "sleep 1500",
     "echo 'this line must never be printed'"
   )),
   sbatch_opts = list(
