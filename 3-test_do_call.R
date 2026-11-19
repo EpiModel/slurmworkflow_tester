@@ -1,11 +1,15 @@
-cat(paste0("var1 = ", var1, ", var2 = ", var2))
+cat(paste0("var1 = ", var1, ", var2 = ", var2, "\n"))
 
-if (!file.exists("did_run")) {
-  cat("First Run")
-  file.create("did_run")
-  current_step <- slurmworkflow::get_current_workflow_step()
-  slurmworkflow::change_next_workflow_step(current_step)
+# The flag lives in the run directory: a new run always starts fresh.
+flag <- file.path(Sys.getenv("SWF_RUN_DIR"), "did_run")
+if (!file.exists(flag)) {
+  cat("First Run\n")
+  file.create(flag)
+  # DANGEROUS on purpose: run this same step again
+  slurmworkflow::change_next_workflow_step(
+    slurmworkflow::get_current_workflow_step_name()
+  )
 } else {
-  cat("Second Run")
-  file.remove("did_run")
+  cat("Second Run\n")
+  file.remove(flag)
 }
